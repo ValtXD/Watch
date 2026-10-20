@@ -40,7 +40,13 @@ function salvarPreferencias() {
     localStorage.setItem('nexus_banner', meuBanner);
 }
 
-// Tentativa de Reconexão Automática
+// Contador Online Global
+socket.on('contadorOnline', (count) => {
+    const counterEl = document.getElementById('online-count');
+    if (counterEl) counterEl.innerText = count;
+});
+
+// Reconexão Automática
 socket.on('connect', () => {
     const savedRoom = sessionStorage.getItem('nexus_idSala');
     const savedPwd = sessionStorage.getItem('nexus_senha');
@@ -53,7 +59,7 @@ socket.on('connect', () => {
     }
 });
 
-// CROPPER E CORTES (Mantido)
+// CROPPER E CORTES
 const cropModal = document.getElementById('crop-modal');
 const cropImage = document.getElementById('crop-image');
 const btnConfirmCrop = document.getElementById('btn-confirm-crop');
@@ -67,7 +73,8 @@ function iniciarCorte(file, modo) {
     reader.onload = (e) => {
         cropImage.src = e.target.result; cropModal.style.display = 'flex'; modoCorteAtual = modo;
         let aspectRatio = modo === 'foto' ? 1 / 1 : 2.8 / 1; 
-        if (modo === 'foto') document.querySelector('.crop-container').classList.add('crop-circle'); else document.querySelector('.crop-container').classList.remove('crop-circle');
+        if (modo === 'foto') document.querySelector('.crop-container').classList.add('crop-circle'); 
+        else document.querySelector('.crop-container').classList.remove('crop-circle');
         if (cropper) cropper.destroy();
         cropper = new Cropper(cropImage, { aspectRatio: aspectRatio, viewMode: 1, dragMode: 'move', background: false });
     };
@@ -111,10 +118,8 @@ function entrarNaInterface(id, senha) {
     loginScreen.style.display = 'none';
     roomScreen.style.display = 'flex';
     document.getElementById('room-info').innerText = `REDE: ${id} | CHAVE: ${senha}`;
-    initAudio(); // Inicia o sistema de áudio quando entra na sala
 }
 
-// Botão Sair Definitivo
 document.getElementById('btn-sair').onclick = () => {
     sessionStorage.clear();
     location.reload();
@@ -166,23 +171,8 @@ socket.on('sistemaMsg', (dados) => {
 });
 
 // ==========================
-// 4. WEBRTC & ÁUDIO MASTER (0 a 200%)
+// 4. WEBRTC & ÁUDIO NATIVO
 // ==========================
-let audioCtx, masterGainNode;
-const gainNodes = {}; // Armazena os volumes individuais de cada pessoa
-
-function initAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        masterGainNode = audioCtx.createGain(); // Amplificador Master (0 a 200%)
-        masterGainNode.connect(audioCtx.destination);
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-
-// Interação para garantir que o navegador não bloqueia o som
-document.body.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
-
 let micLigado = false, meuTrackDeAudio = null;
 
 document.getElementById('btn-mic').onclick = async () => {
@@ -195,7 +185,7 @@ document.getElementById('btn-mic').onclick = async () => {
             atualizarTracksNosPeers();
             micLigado = true;
             btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON';
-        } catch (e) { alert("Mic negado."); }
+        } catch (e) { alert("Mic negado ou indisponível."); }
     } else {
         micLigado = !micLigado; meuTrackDeAudio.enabled = micLigado;
         if (micLigado) { btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON'; } 
@@ -247,35 +237,26 @@ function criarPeerConnection(idAlvo) {
     pc.onicecandidate = (evento) => { if (evento.candidate) socket.emit('webrtc_ice_candidate', { alvo: idAlvo, candidato: evento.candidate }); };
 
     pc.ontrack = (evento) => {
-        initAudio();
         const track = evento.track;
         
         if (track.kind === 'video') {
             videoRemoto.srcObject = new MediaStream([track]);
             document.getElementById('no-video-msg').style.display = 'none';
         } else if (track.kind === 'audio') {
-            // Cria um elemento de áudio isolado e escondido para cada faixa (para evitar conflito com o vídeo da tela)
             let audioElem = document.getElementById(`audio-${idAlvo}`);
             if (!audioElem) {
                 audioElem = document.createElement('audio');
                 audioElem.id = `audio-${idAlvo}`;
                 audioElem.autoplay = true;
                 
-                // Liga o áudio desta pessoa ao Amplificador Individual (GainNode), que liga ao Master
-                const source = audioCtx.createMediaElementSource(audioElem);
-                const individualGain = audioCtx.createGain();
-                
                 const slider = document.getElementById(`vol-${idAlvo}`);
-                individualGain.gain.value = slider ? parseFloat(slider.value) : 1.0;
-                
-                source.connect(individualGain);
-                individualGain.connect(masterGainNode); // Liga ao controlo mestre
-                
-                gainNodes[idAlvo] = individualGain;
+                audioElem.volume = slider ? parseFloat(slider.value) : 1.0;
                 document.body.appendChild(audioElem);
             }
             if (audioElem.srcObject) audioElem.srcObject.addTrack(track);
             else audioElem.srcObject = new MediaStream([track]);
+            
+            audioElem.play().catch(e => console.log('A aguardar interação para iniciar áudio.'));
         }
     };
 
@@ -288,42 +269,42 @@ function criarPeerConnection(idAlvo) {
 }
 
 // ==========================
-// 5. CONTROLE DE VOLUMES NA INTERFACE
+// 5. CONTROLO DE VOLUMES NA INTERFACE
 // ==========================
 const inputVolumeMaster = document.getElementById('input-volume');
 const volumeIcon = document.getElementById('volume-icon');
 
-// Volume Master (Controla TODA a sala junta, de 0 a 200%)
 inputVolumeMaster.addEventListener('input', (e) => {
     const vol = parseFloat(e.target.value);
-    if (masterGainNode) masterGainNode.gain.value = vol; // Aplica o 200% real no hardware
-    
+    videoRemoto.volume = vol; 
     if (vol === 0) volumeIcon.innerText = '🔇';
-    else if (vol < 1) volumeIcon.innerText = '🔉';
+    else if (vol < 0.5) volumeIcon.innerText = '🔉';
     else volumeIcon.innerText = '🔊';
 });
 
-// Volumes Individuais (Renderiza um slider para cada pessoa que entra)
 socket.on('listaUsuarios', (usuarios) => {
     const list = document.getElementById('participants-list');
     list.innerHTML = '';
     for (const [sid, user] of Object.entries(usuarios)) {
-        if (sid === socket.id) continue; // Não cria botão de volume para si mesmo
+        if (sid === socket.id) continue;
         
+        const audioExistente = document.getElementById(`audio-${sid}`);
+        const volAtual = audioExistente ? audioExistente.volume : 1.0;
+
         const div = document.createElement('div');
         div.className = 'participant-item';
         div.innerHTML = `
             <span class="participant-name" style="color: ${user.cor}">${user.nome}</span>
-            <input type="range" class="participant-vol-slider" id="vol-${sid}" min="0" max="2" step="0.1" value="${gainNodes[sid] ? gainNodes[sid].gain.value : 1}" title="Volume Individual">
+            <input type="range" class="participant-vol-slider" id="vol-${sid}" min="0" max="1" step="0.05" value="${volAtual}" title="Volume: ${Math.round(volAtual*100)}%">
         `;
         list.appendChild(div);
 
-        // Controla o Volume (0 a 200%) apenas dessa pessoa
         const slider = div.querySelector('input');
         slider.addEventListener('input', (e) => {
             const vol = parseFloat(e.target.value);
             e.target.title = `Volume: ${Math.round(vol * 100)}%`;
-            if (gainNodes[sid]) gainNodes[sid].gain.value = vol;
+            const audioDaPessoa = document.getElementById(`audio-${sid}`);
+            if (audioDaPessoa) audioDaPessoa.volume = vol;
         });
     }
 });

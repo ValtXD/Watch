@@ -5,21 +5,22 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-    maxHttpBufferSize: 1e8 
-});
-
+// Limite aumentado para permitir o envio de imagens em Base64
+const io = new Server(server, { maxHttpBufferSize: 1e8 });
 app.use(express.static('public'));
 
 const salas = {}; 
 
+// Função para avisar todos sobre quantas pessoas estão no site
+function emitirContadorGlobal() {
+    io.emit('contadorOnline', io.engine.clientsCount);
+}
+
 io.on('connection', (socket) => {
-    
-    // Função para atualizar todos na sala sobre quem está online
+    emitirContadorGlobal(); // Atualiza quando alguém abre o site
+
     const enviarListaUsuarios = (idSala) => {
-        if(salas[idSala]) {
-            io.to(idSala).emit('listaUsuarios', salas[idSala].usuarios);
-        }
+        if(salas[idSala]) io.to(idSala).emit('listaUsuarios', salas[idSala].usuarios);
     };
 
     socket.on('criarSala', ({ nome, cor, foto, banner }) => {
@@ -27,7 +28,7 @@ io.on('connection', (socket) => {
         const senha = Math.random().toString(36).substring(2, 6).toUpperCase();
         
         salas[idSala] = { 
-            senha: senha, 
+            senha, 
             host: socket.id, 
             usuarios: { [socket.id]: { id: socket.id, nome, cor, foto, banner, isHost: true } } 
         };
@@ -41,12 +42,10 @@ io.on('connection', (socket) => {
             salas[idSala].usuarios[socket.id] = { id: socket.id, nome, cor, foto, banner, isHost: false };
             socket.join(idSala);
             socket.emit('entrouComSucesso', { idSala, isHost: false, nome, cor });
-            
             socket.to(idSala).emit('novoUsuario', { id: socket.id, nome: nome });
             
-            // Só envia mensagem no chat se não for apenas um recarregamento de página (reconnect)
             if(!reconnect) {
-                io.to(idSala).emit('sistemaMsg', { nome: nome, cor: cor, texto: 'conectou-se à rede.' });
+                io.to(idSala).emit('sistemaMsg', { nome, cor, texto: 'conectou-se à rede.' });
             }
             enviarListaUsuarios(idSala);
         } else {
@@ -56,9 +55,7 @@ io.on('connection', (socket) => {
 
     socket.on('mensagemChat', (dados) => {
         const user = salas[dados.idSala]?.usuarios[socket.id] || { nome: "Anônimo", cor: "#00E5FF", foto: "", banner: "" };
-        io.to(dados.idSala).emit('mensagemChat', { 
-            nome: user.nome, cor: user.cor, foto: user.foto, banner: user.banner, texto: dados.texto 
-        });
+        io.to(dados.idSala).emit('mensagemChat', { nome: user.nome, cor: user.cor, foto: user.foto, banner: user.banner, texto: dados.texto });
     });
 
     socket.on('webrtc_offer', (dados) => socket.to(dados.alvo).emit('webrtc_offer', { sdp: dados.sdp, remetente: socket.id }));
@@ -66,6 +63,7 @@ io.on('connection', (socket) => {
     socket.on('webrtc_ice_candidate', (dados) => socket.to(dados.alvo).emit('webrtc_ice_candidate', { candidato: dados.candidato, remetente: socket.id }));
 
     socket.on('disconnect', () => {
+        setTimeout(emitirContadorGlobal, 100); // Atualiza o contador quando alguém sai
         for (const sala in salas) {
             if (salas[sala].usuarios[socket.id]) {
                 const user = salas[sala].usuarios[socket.id];
@@ -73,10 +71,10 @@ io.on('connection', (socket) => {
                 delete salas[sala].usuarios[socket.id];
                 enviarListaUsuarios(sala);
                 
-                // Remove salas vazias após 10 segundos (dá tempo de recarregar a página e voltar)
+                // Remove salas vazias após 10 segundos
                 if(Object.keys(salas[sala].usuarios).length === 0) {
-                    setTimeout(() => {
-                        if(salas[sala] && Object.keys(salas[sala].usuarios).length === 0) delete salas[sala];
+                    setTimeout(() => { 
+                        if(salas[sala] && Object.keys(salas[sala].usuarios).length === 0) delete salas[sala]; 
                     }, 10000); 
                 }
             }
@@ -85,6 +83,4 @@ io.on('connection', (socket) => {
 });
 
 const PORTA = process.env.PORT || 3000;
-server.listen(PORTA, () => {
-    console.log(`Servidor a correr na porta ${PORTA}`);
-});
+server.listen(PORTA, () => console.log(`Servidor a correr na porta ${PORTA}`));

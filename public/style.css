@@ -501,3 +501,21 @@ video {
     accent-color: #00E5FF;
     cursor: pointer;
 }
+
+/* --- Estilo do Contador Global --- */
+#online-badge {
+    background: rgba(0, 255, 128, 0.1);
+    color: #00FF80;
+    border: 1px solid #00FF80;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin: 0 auto 20px auto;
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 0 10px rgba(0, 255, 128, 0.2);
+}

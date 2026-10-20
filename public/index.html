@@ -10,6 +10,9 @@
 <body>
     <div id="login-screen">
         <div class="glass-panel">
+            
+            <div id="online-badge">🟢 <span id="online-count">0</span> PESSOAS NO NEXUS</div>
+            
             <h1>NEXUS_SYNC</h1>
             
             <div class="input-group">
@@ -60,10 +63,10 @@
             <div class="header">
                 <span id="room-info">REDE: --- | CHAVE: ---</span>
                 <div class="controls">
-                    <!-- VOLUME MASTER: Escala de 0 a 2 (0% a 200%) -->
+                    <!-- VOLUME MASTER: Escala nativa de 0 a 1 -->
                     <div class="volume-control" title="Ajustar volume da transmissão Mestre">
                         <span id="volume-icon">🔊</span>
-                        <input type="range" id="input-volume" min="0" max="2" step="0.1" value="1">
+                        <input type="range" id="input-volume" min="0" max="1" step="0.05" value="1">
                     </div>
                     
                     <label class="custom-file-upload">
