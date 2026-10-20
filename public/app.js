@@ -23,26 +23,37 @@ let minhaCor = '#00E5FF';
 let minhaFoto = '';
 let meuBanner = '';
 let souHost = false;
-let streamLocal;
+let streamLocal = new MediaStream();
 
 const peers = {}; 
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 // ==========================
-// 1. CARREGAR PREFERÊNCIAS E SISTEMA DE CORTE (CROPPER)
+// 1. CARREGAR PREFERÊNCIAS
 // ==========================
-// Trocado de localStorage para sessionStorage (apaga ao fechar a aba)
-if (sessionStorage.getItem('nexus_nickname')) inputNome.value = sessionStorage.getItem('nexus_nickname');
-if (sessionStorage.getItem('nexus_color')) inputCor.value = sessionStorage.getItem('nexus_color');
+if (localStorage.getItem('nexus_nickname')) inputNome.value = localStorage.getItem('nexus_nickname');
+if (localStorage.getItem('nexus_color')) inputCor.value = localStorage.getItem('nexus_color');
+
+// Carrega as imagens guardadas para não ter de escolher de novo
+if (localStorage.getItem('nexus_foto')) {
+    minhaFoto = localStorage.getItem('nexus_foto');
+    document.getElementById('preview-foto').src = minhaFoto;
+}
+if (localStorage.getItem('nexus_banner')) {
+    meuBanner = localStorage.getItem('nexus_banner');
+    document.getElementById('preview-banner').style.backgroundImage = `url(${meuBanner})`;
+}
 
 function salvarPreferencias() {
     meuNome = inputNome.value.trim() || 'OPERADOR';
     minhaCor = inputCor.value;
-    sessionStorage.setItem('nexus_nickname', meuNome);
-    sessionStorage.setItem('nexus_color', minhaCor);
+    localStorage.setItem('nexus_nickname', meuNome);
+    localStorage.setItem('nexus_color', minhaCor);
+    localStorage.setItem('nexus_foto', minhaFoto);
+    localStorage.setItem('nexus_banner', meuBanner);
 }
 
-// Elementos do Modal de Corte
+// CROPPER E CORTES
 const cropModal = document.getElementById('crop-modal');
 const cropImage = document.getElementById('crop-image');
 const btnConfirmCrop = document.getElementById('btn-confirm-crop');
@@ -51,7 +62,7 @@ const previewFoto = document.getElementById('preview-foto');
 const previewBanner = document.getElementById('preview-banner');
 
 let cropper;
-let modoCorteAtual = ''; // 'foto' ou 'banner'
+let modoCorteAtual = ''; 
 
 function iniciarCorte(file, modo) {
     const reader = new FileReader();
@@ -60,71 +71,35 @@ function iniciarCorte(file, modo) {
         cropModal.style.display = 'flex';
         modoCorteAtual = modo;
 
-        // Configurações do Cropper baseadas no tipo de imagem
-        let aspectRatio = modo === 'foto' ? 1 / 1 : 2.8 / 1; // 1:1 para avatar, 2.8:1 para banner
-        
-        if (modo === 'foto') {
-            document.querySelector('.crop-container').classList.add('crop-circle');
-        } else {
-            document.querySelector('.crop-container').classList.remove('crop-circle');
-        }
+        let aspectRatio = modo === 'foto' ? 1 / 1 : 2.8 / 1; 
+        if (modo === 'foto') document.querySelector('.crop-container').classList.add('crop-circle');
+        else document.querySelector('.crop-container').classList.remove('crop-circle');
 
         if (cropper) cropper.destroy();
-        
-        cropper = new Cropper(cropImage, {
-            aspectRatio: aspectRatio,
-            viewMode: 1,
-            dragMode: 'move',
-            background: false,
-        });
+        cropper = new Cropper(cropImage, { aspectRatio: aspectRatio, viewMode: 1, dragMode: 'move', background: false });
     };
     reader.readAsDataURL(file);
 }
 
-document.getElementById('input-foto').addEventListener('change', (e) => {
-    if (e.target.files[0]) iniciarCorte(e.target.files[0], 'foto');
-    e.target.value = ''; // Limpa o input
-});
+document.getElementById('input-foto').addEventListener('change', (e) => { if (e.target.files[0]) iniciarCorte(e.target.files[0], 'foto'); e.target.value = ''; });
+document.getElementById('input-banner').addEventListener('change', (e) => { if (e.target.files[0]) iniciarCorte(e.target.files[0], 'banner'); e.target.value = ''; });
 
-document.getElementById('input-banner').addEventListener('change', (e) => {
-    if (e.target.files[0]) iniciarCorte(e.target.files[0], 'banner');
-    e.target.value = '';
-});
-
-btnCancelCrop.onclick = () => {
-    cropModal.style.display = 'none';
-    if (cropper) cropper.destroy();
-};
+btnCancelCrop.onclick = () => { cropModal.style.display = 'none'; if (cropper) cropper.destroy(); };
 
 btnConfirmCrop.onclick = () => {
     if (!cropper) return;
-    
-    // Extrai a imagem cortada com qualidade controlada para não pesar a rede
-    const canvas = cropper.getCroppedCanvas({
-        width: modoCorteAtual === 'foto' ? 256 : 800,
-        fillColor: '#000'
-    });
-    
+    const canvas = cropper.getCroppedCanvas({ width: modoCorteAtual === 'foto' ? 256 : 800, fillColor: '#000' });
     const base64Img = canvas.toDataURL('image/jpeg', 0.8);
 
-    if (modoCorteAtual === 'foto') {
-        minhaFoto = base64Img;
-        previewFoto.src = base64Img;
-    } else {
-        meuBanner = base64Img;
-        previewBanner.style.backgroundImage = `url(${base64Img})`;
-    }
+    if (modoCorteAtual === 'foto') { minhaFoto = base64Img; previewFoto.src = base64Img; } 
+    else { meuBanner = base64Img; previewBanner.style.backgroundImage = `url(${base64Img})`; }
 
     cropModal.style.display = 'none';
     cropper.destroy();
 };
 
 // ==========================
-// 2. LIGAÇÃO À REDE E SALAS (Abaixo deste ponto, o código original se mantém)
-// ==========================
-
-// ==========================
-// 2. LIGAÇÃO À REDE E SALAS
+// 2. LIGAÇÃO À REDE
 // ==========================
 document.getElementById('btn-criar').onclick = () => {
     salvarPreferencias();
@@ -138,17 +113,8 @@ document.getElementById('btn-entrar').onclick = () => {
     socket.emit('entrarSala', { idSala: id, senha: pwd, nome: meuNome, cor: minhaCor, foto: minhaFoto, banner: meuBanner });
 };
 
-socket.on('salaCriada', (dados) => {
-    souHost = true;
-    btnTela.style.display = 'block';
-    entrarNaInterface(dados.idSala, dados.senha);
-});
-
-socket.on('entrouComSucesso', (dados) => {
-    souHost = false;
-    entrarNaInterface(dados.idSala, 'OCULTA');
-});
-
+socket.on('salaCriada', (dados) => { souHost = true; btnTela.style.display = 'block'; entrarNaInterface(dados.idSala, dados.senha); });
+socket.on('entrouComSucesso', (dados) => { souHost = false; entrarNaInterface(dados.idSala, 'OCULTA'); });
 socket.on('erro', (msg) => alert(msg));
 
 function entrarNaInterface(id, senha) {
@@ -158,17 +124,15 @@ function entrarNaInterface(id, senha) {
     document.getElementById('room-info').innerText = `REDE: ${id} | CHAVE: ${senha}`;
 }
 
-// Fundo de Ecrã Local da Sala
 inputWallpaper.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            videoContainer.style.backgroundImage = `url(${e.target.result})`;
-        };
+        reader.onload = (e) => videoContainer.style.backgroundImage = `url(${e.target.result})`;
         reader.readAsDataURL(file);
     }
 });
+document.getElementById('btn-remover-fundo').onclick = () => { videoContainer.style.backgroundImage = 'none'; document.getElementById('input-wallpaper').value = ''; };
 
 // ==========================
 // 3. CHAT E JANELA DE PERFIL
@@ -177,10 +141,7 @@ document.getElementById('btn-enviar-chat').onclick = enviarMsg;
 inputChat.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMsg(); });
 
 function enviarMsg() {
-    if (inputChat.value) {
-        socket.emit('mensagemChat', { idSala: minhaSala, texto: inputChat.value });
-        inputChat.value = '';
-    }
+    if (inputChat.value) { socket.emit('mensagemChat', { idSala: minhaSala, texto: inputChat.value }); inputChat.value = ''; }
 }
 
 const avatarPadrao = 'https://i.imgur.com/7A2y5Zz.png'; 
@@ -188,7 +149,6 @@ const avatarPadrao = 'https://i.imgur.com/7A2y5Zz.png';
 socket.on('mensagemChat', (dados) => {
     const div = document.createElement('div');
     div.className = 'msg';
-    
     const fotoUser = dados.foto || avatarPadrao;
     const bannerUser = dados.banner || '';
 
@@ -203,109 +163,78 @@ socket.on('mensagemChat', (dados) => {
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // Lógica do Hover (Rato por cima do nome/avatar)
     const header = div.querySelector('.msg-header');
-    
     header.addEventListener('mouseenter', (e) => {
         const target = e.currentTarget;
-        
         popupNome.innerText = target.getAttribute('data-nome');
         popupNome.style.color = target.getAttribute('data-cor');
         popupFoto.src = target.getAttribute('data-foto');
-        
         const bannerStr = target.getAttribute('data-banner');
         popupBanner.style.backgroundImage = bannerStr ? `url(${bannerStr})` : 'none';
         
         profilePopup.style.display = 'block';
         const rect = target.getBoundingClientRect();
-        
         profilePopup.style.left = (rect.left - 270) + 'px'; 
         profilePopup.style.top = (rect.top - 50) + 'px';
-        
-        if (rect.left < 270) {
-            profilePopup.style.left = (rect.right + 10) + 'px';
-        }
+        if (rect.left < 270) profilePopup.style.left = (rect.right + 10) + 'px';
     });
+    header.addEventListener('mouseleave', () => profilePopup.style.display = 'none');
+});
 
-    header.addEventListener('mouseleave', () => {
-        profilePopup.style.display = 'none';
-    });
+socket.on('sistemaMsg', (dados) => {
+    const div = document.createElement('div');
+    div.className = 'msg-sistema';
+    div.innerHTML = `<span class="sys-name" style="color: ${dados.cor};">${dados.nome}</span> ${dados.texto}`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // ==========================
-// 4. WEBRTC (TRANSMISSÃO DE ÁUDIO E VÍDEO)
+// 4. WEBRTC (TRANSMISSÃO OTIMIZADA)
 // ==========================
 let micLigado = false;
 let meuTrackDeAudio = null;
 
 document.getElementById('btn-mic').onclick = async () => {
     const btnMic = document.getElementById('btn-mic');
-    
-    // Se for a primeira vez que clica, pedimos permissão e capturamos o áudio
     if (!meuTrackDeAudio) {
         try {
             const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            meuTrackDeAudio = audioStream.getAudioTracks()[0]; // Salva o controle do microfone
-            adicionarStreamAsConexoes(audioStream);
+            meuTrackDeAudio = audioStream.getAudioTracks()[0];
+            streamLocal.addTrack(meuTrackDeAudio);
+            atualizarTracksNosPeers();
             
             micLigado = true;
-            btnMic.style.backgroundColor = '#00E5FF'; 
-            btnMic.style.color = '#000'; 
-            btnMic.innerText = 'MIC ON';
-        } catch (e) { 
-            alert("Acesso ao microfone negado ou indisponível."); 
-        }
+            btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON';
+        } catch (e) { alert("Mic negado."); }
     } else {
-        // Se já tem o microfone capturado, apenas Liga/Desliga (Mute)
         micLigado = !micLigado;
-        meuTrackDeAudio.enabled = micLigado; // Corta o som na fonte
-        
-        if (micLigado) {
-            btnMic.style.backgroundColor = '#00E5FF'; 
-            btnMic.style.color = '#000'; 
-            btnMic.innerText = 'MIC ON';
-        } else {
-            btnMic.style.backgroundColor = 'rgba(0, 229, 255, 0.1)'; 
-            btnMic.style.color = '#00E5FF'; 
-            btnMic.innerText = 'MIC OFF';
-        }
+        meuTrackDeAudio.enabled = micLigado;
+        if (micLigado) { btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON'; } 
+        else { btnMic.style.backgroundColor = 'rgba(0, 229, 255, 0.1)'; btnMic.style.color = '#00E5FF'; btnMic.innerText = 'MIC OFF'; }
     }
 };
 
 btnTela.onclick = async () => {
     try {
         const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        
         videoLocal.srcObject = displayStream;
         videoLocal.style.display = 'block';
         document.getElementById('no-video-msg').style.display = 'none';
         videoRemoto.style.display = 'none';
         
-        adicionarStreamAsConexoes(displayStream);
+        displayStream.getTracks().forEach(track => streamLocal.addTrack(track));
+        atualizarTracksNosPeers();
         
-        btnTela.style.backgroundColor = '#00E5FF';
-        btnTela.style.color = '#000';
-        btnTela.innerText = 'A TRANSMITIR';
-        
-        if (document.pictureInPictureEnabled) {
-            try { await videoLocal.requestPictureInPicture(); } catch (e) { console.log("PiP automático falhou"); }
-        }
+        btnTela.style.backgroundColor = '#00E5FF'; btnTela.style.color = '#000'; btnTela.innerText = 'A TRANSMITIR';
     } catch (e) { console.log("Partilha cancelada"); }
 };
 
-function adicionarStreamAsConexoes(novoStream) {
-    if (!streamLocal) {
-        streamLocal = novoStream;
-    } else {
-        novoStream.getTracks().forEach(track => streamLocal.addTrack(track));
-    }
-
+function atualizarTracksNosPeers() {
     for (const socketId in peers) {
         const pc = peers[socketId];
-        novoStream.getTracks().forEach(track => {
-            if (!pc.getSenders().find(s => s.track === track)) {
-                pc.addTrack(track, streamLocal);
-            }
+        streamLocal.getTracks().forEach(track => {
+            if (!pc.getSenders().find(s => s.track === track)) pc.addTrack(track, streamLocal);
         });
     }
 }
@@ -326,30 +255,39 @@ socket.on('webrtc_offer', async (dados) => {
 });
 
 socket.on('webrtc_answer', async (dados) => {
-    if (peers[dados.remetente]) {
-        await peers[dados.remetente].setRemoteDescription(new RTCSessionDescription(dados.sdp));
-    }
+    if (peers[dados.remetente]) await peers[dados.remetente].setRemoteDescription(new RTCSessionDescription(dados.sdp));
 });
 
 socket.on('webrtc_ice_candidate', async (dados) => {
-    if (peers[dados.remetente]) {
-        await peers[dados.remetente].addIceCandidate(new RTCIceCandidate(dados.candidato));
-    }
+    if (peers[dados.remetente]) await peers[dados.remetente].addIceCandidate(new RTCIceCandidate(dados.candidato));
 });
 
 function criarPeerConnection(idAlvo) {
+    if (peers[idAlvo]) return peers[idAlvo]; // Evita duplicar conexão
     const pc = new RTCPeerConnection(rtcConfig);
     peers[idAlvo] = pc;
 
     pc.onicecandidate = (evento) => {
-        if (evento.candidate) {
-            socket.emit('webrtc_ice_candidate', { alvo: idAlvo, candidato: evento.candidate });
-        }
+        if (evento.candidate) socket.emit('webrtc_ice_candidate', { alvo: idAlvo, candidato: evento.candidate });
     };
 
     pc.ontrack = (evento) => {
-        videoRemoto.srcObject = evento.streams[0];
-        document.getElementById('no-video-msg').style.display = 'none';
+        const track = evento.track;
+        
+        // Se for Vídeo, vai para a tela grande. Se for Áudio, criamos um player invisível para a pessoa.
+        if (track.kind === 'video') {
+            videoRemoto.srcObject = evento.streams[0];
+            document.getElementById('no-video-msg').style.display = 'none';
+        } else if (track.kind === 'audio') {
+            let audioElem = document.getElementById(`audio-${idAlvo}`);
+            if (!audioElem) {
+                audioElem = document.createElement('audio');
+                audioElem.id = `audio-${idAlvo}`;
+                audioElem.autoplay = true;
+                document.body.appendChild(audioElem);
+            }
+            audioElem.srcObject = evento.streams[0];
+        }
     };
 
     pc.onnegotiationneeded = async () => {
@@ -357,52 +295,20 @@ function criarPeerConnection(idAlvo) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             socket.emit('webrtc_offer', { alvo: idAlvo, sdp: offer });
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) {}
     };
 
-    if (streamLocal) {
-        streamLocal.getTracks().forEach(track => pc.addTrack(track, streamLocal));
-    }
-
+    streamLocal.getTracks().forEach(track => pc.addTrack(track, streamLocal));
     return pc;
 }
 
-// ==========================
-// 5. CONTROLE DE VOLUME LOCAL
-// ==========================
+// O volume agora apenas controla o volume principal (a transmissão de ecrã/filme)
 const inputVolume = document.getElementById('input-volume');
 const volumeIcon = document.getElementById('volume-icon');
-
 inputVolume.addEventListener('input', (e) => {
-    // Pega o valor da barra (vai de 0.0 até 1.0)
     const vol = parseFloat(e.target.value);
-    
-    // Altera o volume apenas do vídeo remoto no PC desta pessoa
     videoRemoto.volume = vol;
-    
-    // Muda o ícone dependendo do nível do volume
-    if (vol === 0) {
-        volumeIcon.innerText = '🔇';
-    } else if (vol < 0.5) {
-        volumeIcon.innerText = '🔉';
-    } else {
-        volumeIcon.innerText = '🔊';
-    }
-});
-
-// Ação do Botão de Remover Fundo
-document.getElementById('btn-remover-fundo').onclick = () => {
-    videoContainer.style.backgroundImage = 'none';
-    document.getElementById('input-wallpaper').value = '';
-};
-
-// Escutar mensagens de histórico (Entrou/Saiu)
-socket.on('sistemaMsg', (dados) => {
-    const div = document.createElement('div');
-    div.className = 'msg-sistema';
-    div.innerHTML = `<span class="sys-name" style="color: ${dados.cor};">${dados.nome}</span> ${dados.texto}`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (vol === 0) volumeIcon.innerText = '🔇';
+    else if (vol < 0.5) volumeIcon.innerText = '🔉';
+    else volumeIcon.innerText = '🔊';
 });
