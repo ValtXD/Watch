@@ -21,8 +21,24 @@ let minhaSala = '', meuNome = '', minhaCor = '#00E5FF', minhaFoto = '', meuBanne
 let streamLocal = new MediaStream();
 
 const peers = {}; 
-const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
+const rtcConfig = { 
+    iceServers: [
+        // STUN do Google para tentar a conexão direta primeiro
+        { urls: 'stun:stun.l.google.com:19302' },
+        
+        // TURN gratuito para retransmitir caso o STUN falhe (fura qualquer bloqueio)
+        { 
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
+    ] 
+};
 // ==========================
 // MÚSICA DE FUNDO DO LOGIN
 // ==========================
