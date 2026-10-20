@@ -519,3 +519,55 @@ video {
     gap: 8px;
     box-shadow: 0 0 10px rgba(0, 255, 128, 0.2);
 }
+
+/* --- Botão de Música no Login --- */
+.music-toggle {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    background: rgba(0, 20, 40, 0.8);
+    border: 1px solid #00E5FF;
+    color: #00E5FF;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: bold;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s;
+    backdrop-filter: blur(5px);
+}
+
+.music-toggle:hover {
+    background: #00E5FF;
+    color: #050A14;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+}
+
+/* --- Botão de Créditos no Login --- */
+.credits-toggle {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    background: rgba(0, 20, 40, 0.8);
+    border: 1px solid #4A90E2;
+    color: #4A90E2;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: bold;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s;
+    backdrop-filter: blur(5px);
+}
+
+.credits-toggle:hover {
+    background: #4A90E2;
+    color: #050A14;
+    box-shadow: 0 0 15px rgba(74, 144, 226, 0.6);
+}

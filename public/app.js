@@ -24,6 +24,42 @@ const peers = {};
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 // ==========================
+// MÚSICA DE FUNDO DO LOGIN
+// ==========================
+const bgAudio = document.getElementById('bg-audio');
+const btnMusic = document.getElementById('btn-music');
+
+btnMusic.onclick = () => {
+    if (bgAudio.paused) {
+        bgAudio.volume = 0.25; // Define o volume para 25% (para não ser muito alto)
+        bgAudio.play();
+        btnMusic.innerText = 'MÚSICA ON';
+        btnMusic.style.backgroundColor = '#00E5FF';
+        btnMusic.style.color = '#000';
+    } else {
+        bgAudio.pause();
+        btnMusic.innerText = 'MÚSICA OFF';
+        btnMusic.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
+        btnMusic.style.color = '#00E5FF';
+    }
+};
+
+// ==========================
+// CRÉDITOS DO PROJETO
+// ==========================
+const btnCredits = document.getElementById('btn-credits');
+const creditsModal = document.getElementById('credits-modal');
+const btnCloseCredits = document.getElementById('btn-close-credits');
+
+btnCredits.onclick = () => {
+    creditsModal.style.display = 'flex';
+};
+
+btnCloseCredits.onclick = () => {
+    creditsModal.style.display = 'none';
+};
+
+// ==========================
 // 1. CARREGAR PREFERÊNCIAS E RECONEXÃO
 // ==========================
 if (localStorage.getItem('nexus_nickname')) inputNome.value = localStorage.getItem('nexus_nickname');
@@ -115,6 +151,11 @@ function entrarNaInterface(id, senha) {
     minhaSala = id;
     sessionStorage.setItem('nexus_idSala', id);
     sessionStorage.setItem('nexus_senha', senha);
+// === CÓDIGO CORRIGIDO: PÁRA A MÚSICA AO ENTRAR NA SALA ===
+    if (bgAudio) {
+        bgAudio.pause();
+        bgAudio.currentTime = 0; // Volta a música para o início caso saia e volte
+    }
     loginScreen.style.display = 'none';
     roomScreen.style.display = 'flex';
     document.getElementById('room-info').innerText = `REDE: ${id} | CHAVE: ${senha}`;
