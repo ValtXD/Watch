@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Watch</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="login-screen">
+        <div class="glass-panel">
+            <h1>NEXUS_SYNC</h1>
+            
+            <div class="input-group">
+                <input type="text" id="input-nome" placeholder="NOME DE OPERADOR">
+                <input type="color" id="input-cor" value="#00E5FF" title="Cor do seu nome">
+            </div>
+            
+            <button id="btn-criar" class="btn-cyber">INICIAR NOVA REDE</button>
+            
+            <div class="divider">CONEXÃO EXTERNA</div>
+            
+            <input type="text" id="input-sala" placeholder="CÓDIGO DA REDE (SALA)">
+            <input type="password" id="input-senha" placeholder="CHAVE DE ACESSO">
+            <button id="btn-entrar" class="btn-cyber alt">CONECTAR</button>
+        </div>
+    </div>
+
+    <div id="room-screen" style="display: none;">
+        <div class="main-area">
+            <div class="header">
+                <span id="room-info">REDE: --- | CHAVE: ---</span>
+                <div class="controls">
+                    <label class="custom-file-upload">
+                        ALTERAR FUNDO
+                        <input type="file" id="input-wallpaper" accept="image/*">
+                    </label>
+                    <button id="btn-mic" class="btn-tool">MIC ON/OFF</button>
+                    <button id="btn-tela" class="btn-tool" style="display: none;">TRANSMITIR SINAL</button>
+                </div>
+            </div>
+            
+            <div class="video-container" id="video-container">
+                <video id="video-local" autoplay muted playsinline style="display: none;"></video>
+                <video id="video-remoto" autoplay playsinline></video>
+                <div id="no-video-msg">AGUARDANDO SINAL DO HOST...</div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-header">TERMINAL DE COMUNICAÇÃO</div>
+            <div id="chat-box"></div>
+            <div class="chat-input-area">
+                <input type="text" id="input-chat" placeholder="Inserir comando...">
+                <button id="btn-enviar-chat">ENVIAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
