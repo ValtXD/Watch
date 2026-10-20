@@ -14,6 +14,14 @@ app.use(express.static('public'));
 const salas = {}; 
 
 io.on('connection', (socket) => {
+    
+    // Função para atualizar todos na sala sobre quem está online
+    const enviarListaUsuarios = (idSala) => {
+        if(salas[idSala]) {
+            io.to(idSala).emit('listaUsuarios', salas[idSala].usuarios);
+        }
+    };
+
     socket.on('criarSala', ({ nome, cor, foto, banner }) => {
         const idSala = Math.random().toString(36).substring(2, 8).toUpperCase();
         const senha = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -21,26 +29,31 @@ io.on('connection', (socket) => {
         salas[idSala] = { 
             senha: senha, 
             host: socket.id, 
-            usuarios: { [socket.id]: { nome, cor, foto, banner } } 
+            usuarios: { [socket.id]: { id: socket.id, nome, cor, foto, banner, isHost: true } } 
         };
         socket.join(idSala);
         socket.emit('salaCriada', { idSala, senha, isHost: true, nome, cor });
+        enviarListaUsuarios(idSala);
     });
 
-    socket.on('entrarSala', ({ idSala, senha, nome, cor, foto, banner }) => {
+    socket.on('entrarSala', ({ idSala, senha, nome, cor, foto, banner, reconnect }) => {
         if (salas[idSala] && salas[idSala].senha === senha) {
-            salas[idSala].usuarios[socket.id] = { nome, cor, foto, banner };
+            salas[idSala].usuarios[socket.id] = { id: socket.id, nome, cor, foto, banner, isHost: false };
             socket.join(idSala);
             socket.emit('entrouComSucesso', { idSala, isHost: false, nome, cor });
             
             socket.to(idSala).emit('novoUsuario', { id: socket.id, nome: nome });
-            io.to(idSala).emit('sistemaMsg', { nome: nome, cor: cor, texto: 'conectou-se à rede.' });
+            
+            // Só envia mensagem no chat se não for apenas um recarregamento de página (reconnect)
+            if(!reconnect) {
+                io.to(idSala).emit('sistemaMsg', { nome: nome, cor: cor, texto: 'conectou-se à rede.' });
+            }
+            enviarListaUsuarios(idSala);
         } else {
-            socket.emit('erro', 'Sala ou chave incorretos!');
+            socket.emit('erro', 'Sala ou chave incorretos (ou a sala expirou)!');
         }
     });
 
-    // MENSAGEM DE CHAT (Agora apenas UMA vez)
     socket.on('mensagemChat', (dados) => {
         const user = salas[dados.idSala]?.usuarios[socket.id] || { nome: "Anônimo", cor: "#00E5FF", foto: "", banner: "" };
         io.to(dados.idSala).emit('mensagemChat', { 
@@ -58,6 +71,14 @@ io.on('connection', (socket) => {
                 const user = salas[sala].usuarios[socket.id];
                 io.to(sala).emit('sistemaMsg', { nome: user.nome, cor: user.cor, texto: 'desconectou-se da rede.' });
                 delete salas[sala].usuarios[socket.id];
+                enviarListaUsuarios(sala);
+                
+                // Remove salas vazias após 10 segundos (dá tempo de recarregar a página e voltar)
+                if(Object.keys(salas[sala].usuarios).length === 0) {
+                    setTimeout(() => {
+                        if(salas[sala] && Object.keys(salas[sala].usuarios).length === 0) delete salas[sala];
+                    }, 10000); 
+                }
             }
         }
     });

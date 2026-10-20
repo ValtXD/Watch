@@ -17,32 +17,19 @@ const popupBanner = document.getElementById('popup-banner');
 const popupFoto = document.getElementById('popup-foto');
 const popupNome = document.getElementById('popup-nome');
 
-let minhaSala = '';
-let meuNome = '';
-let minhaCor = '#00E5FF';
-let minhaFoto = '';
-let meuBanner = '';
-let souHost = false;
+let minhaSala = '', meuNome = '', minhaCor = '#00E5FF', minhaFoto = '', meuBanner = '', souHost = false;
 let streamLocal = new MediaStream();
 
 const peers = {}; 
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 // ==========================
-// 1. CARREGAR PREFERÊNCIAS
+// 1. CARREGAR PREFERÊNCIAS E RECONEXÃO
 // ==========================
 if (localStorage.getItem('nexus_nickname')) inputNome.value = localStorage.getItem('nexus_nickname');
 if (localStorage.getItem('nexus_color')) inputCor.value = localStorage.getItem('nexus_color');
-
-// Carrega as imagens guardadas para não ter de escolher de novo
-if (localStorage.getItem('nexus_foto')) {
-    minhaFoto = localStorage.getItem('nexus_foto');
-    document.getElementById('preview-foto').src = minhaFoto;
-}
-if (localStorage.getItem('nexus_banner')) {
-    meuBanner = localStorage.getItem('nexus_banner');
-    document.getElementById('preview-banner').style.backgroundImage = `url(${meuBanner})`;
-}
+if (localStorage.getItem('nexus_foto')) { minhaFoto = localStorage.getItem('nexus_foto'); document.getElementById('preview-foto').src = minhaFoto; }
+if (localStorage.getItem('nexus_banner')) { meuBanner = localStorage.getItem('nexus_banner'); document.getElementById('preview-banner').style.backgroundImage = `url(${meuBanner})`; }
 
 function salvarPreferencias() {
     meuNome = inputNome.value.trim() || 'OPERADOR';
@@ -53,59 +40,59 @@ function salvarPreferencias() {
     localStorage.setItem('nexus_banner', meuBanner);
 }
 
-// CROPPER E CORTES
+// Tentativa de Reconexão Automática
+socket.on('connect', () => {
+    const savedRoom = sessionStorage.getItem('nexus_idSala');
+    const savedPwd = sessionStorage.getItem('nexus_senha');
+    if (savedRoom && savedPwd) {
+        salvarPreferencias();
+        socket.emit('entrarSala', { 
+            idSala: savedRoom, senha: savedPwd, nome: meuNome, cor: minhaCor, 
+            foto: minhaFoto, banner: meuBanner, reconnect: true 
+        });
+    }
+});
+
+// CROPPER E CORTES (Mantido)
 const cropModal = document.getElementById('crop-modal');
 const cropImage = document.getElementById('crop-image');
 const btnConfirmCrop = document.getElementById('btn-confirm-crop');
 const btnCancelCrop = document.getElementById('btn-cancel-crop');
 const previewFoto = document.getElementById('preview-foto');
 const previewBanner = document.getElementById('preview-banner');
-
-let cropper;
-let modoCorteAtual = ''; 
+let cropper, modoCorteAtual = ''; 
 
 function iniciarCorte(file, modo) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        cropImage.src = e.target.result;
-        cropModal.style.display = 'flex';
-        modoCorteAtual = modo;
-
+        cropImage.src = e.target.result; cropModal.style.display = 'flex'; modoCorteAtual = modo;
         let aspectRatio = modo === 'foto' ? 1 / 1 : 2.8 / 1; 
-        if (modo === 'foto') document.querySelector('.crop-container').classList.add('crop-circle');
-        else document.querySelector('.crop-container').classList.remove('crop-circle');
-
+        if (modo === 'foto') document.querySelector('.crop-container').classList.add('crop-circle'); else document.querySelector('.crop-container').classList.remove('crop-circle');
         if (cropper) cropper.destroy();
         cropper = new Cropper(cropImage, { aspectRatio: aspectRatio, viewMode: 1, dragMode: 'move', background: false });
     };
     reader.readAsDataURL(file);
 }
-
 document.getElementById('input-foto').addEventListener('change', (e) => { if (e.target.files[0]) iniciarCorte(e.target.files[0], 'foto'); e.target.value = ''; });
 document.getElementById('input-banner').addEventListener('change', (e) => { if (e.target.files[0]) iniciarCorte(e.target.files[0], 'banner'); e.target.value = ''; });
-
 btnCancelCrop.onclick = () => { cropModal.style.display = 'none'; if (cropper) cropper.destroy(); };
 
 btnConfirmCrop.onclick = () => {
     if (!cropper) return;
     const canvas = cropper.getCroppedCanvas({ width: modoCorteAtual === 'foto' ? 256 : 800, fillColor: '#000' });
     const base64Img = canvas.toDataURL('image/jpeg', 0.8);
-
     if (modoCorteAtual === 'foto') { minhaFoto = base64Img; previewFoto.src = base64Img; } 
     else { meuBanner = base64Img; previewBanner.style.backgroundImage = `url(${base64Img})`; }
-
-    cropModal.style.display = 'none';
-    cropper.destroy();
+    cropModal.style.display = 'none'; cropper.destroy();
 };
 
 // ==========================
-// 2. LIGAÇÃO À REDE
+// 2. LIGAÇÃO À REDE E INTERFACE
 // ==========================
 document.getElementById('btn-criar').onclick = () => {
     salvarPreferencias();
     socket.emit('criarSala', { nome: meuNome, cor: minhaCor, foto: minhaFoto, banner: meuBanner });
 };
-
 document.getElementById('btn-entrar').onclick = () => {
     salvarPreferencias();
     const id = document.getElementById('input-sala').value.toUpperCase();
@@ -114,23 +101,28 @@ document.getElementById('btn-entrar').onclick = () => {
 };
 
 socket.on('salaCriada', (dados) => { souHost = true; btnTela.style.display = 'block'; entrarNaInterface(dados.idSala, dados.senha); });
-socket.on('entrouComSucesso', (dados) => { souHost = false; entrarNaInterface(dados.idSala, 'OCULTA'); });
-socket.on('erro', (msg) => alert(msg));
+socket.on('entrouComSucesso', (dados) => { souHost = dados.isHost; if(souHost) btnTela.style.display = 'block'; entrarNaInterface(dados.idSala, 'OCULTA'); });
+socket.on('erro', (msg) => { sessionStorage.clear(); alert(msg); });
 
 function entrarNaInterface(id, senha) {
     minhaSala = id;
+    sessionStorage.setItem('nexus_idSala', id);
+    sessionStorage.setItem('nexus_senha', senha);
     loginScreen.style.display = 'none';
     roomScreen.style.display = 'flex';
     document.getElementById('room-info').innerText = `REDE: ${id} | CHAVE: ${senha}`;
+    initAudio(); // Inicia o sistema de áudio quando entra na sala
 }
+
+// Botão Sair Definitivo
+document.getElementById('btn-sair').onclick = () => {
+    sessionStorage.clear();
+    location.reload();
+};
 
 inputWallpaper.addEventListener('change', (event) => {
     const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => videoContainer.style.backgroundImage = `url(${e.target.result})`;
-        reader.readAsDataURL(file);
-    }
+    if (file) { const reader = new FileReader(); reader.onload = (e) => videoContainer.style.backgroundImage = `url(${e.target.result})`; reader.readAsDataURL(file); }
 });
 document.getElementById('btn-remover-fundo').onclick = () => { videoContainer.style.backgroundImage = 'none'; document.getElementById('input-wallpaper').value = ''; };
 
@@ -140,60 +132,58 @@ document.getElementById('btn-remover-fundo').onclick = () => { videoContainer.st
 document.getElementById('btn-enviar-chat').onclick = enviarMsg;
 inputChat.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMsg(); });
 
-function enviarMsg() {
-    if (inputChat.value) { socket.emit('mensagemChat', { idSala: minhaSala, texto: inputChat.value }); inputChat.value = ''; }
-}
-
-const avatarPadrao = 'https://i.imgur.com/7A2y5Zz.png'; 
+function enviarMsg() { if (inputChat.value) { socket.emit('mensagemChat', { idSala: minhaSala, texto: inputChat.value }); inputChat.value = ''; } }
 
 socket.on('mensagemChat', (dados) => {
-    const div = document.createElement('div');
-    div.className = 'msg';
-    const fotoUser = dados.foto || avatarPadrao;
-    const bannerUser = dados.banner || '';
-
+    const div = document.createElement('div'); div.className = 'msg';
+    const fotoUser = dados.foto || 'https://i.imgur.com/7A2y5Zz.png';
     div.innerHTML = `
-        <div class="msg-header" data-nome="${dados.nome}" data-cor="${dados.cor}" data-foto="${fotoUser}" data-banner="${bannerUser}">
+        <div class="msg-header" data-nome="${dados.nome}" data-cor="${dados.cor}" data-foto="${fotoUser}" data-banner="${dados.banner || ''}">
             <img src="${fotoUser}" class="chat-avatar">
             <span class="msg-nome" style="color: ${dados.cor};">${dados.nome}</span>
         </div>
         <div class="msg-texto">${dados.texto}</div>
     `;
-    
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    chatBox.appendChild(div); chatBox.scrollTop = chatBox.scrollHeight;
 
     const header = div.querySelector('.msg-header');
     header.addEventListener('mouseenter', (e) => {
         const target = e.currentTarget;
-        popupNome.innerText = target.getAttribute('data-nome');
-        popupNome.style.color = target.getAttribute('data-cor');
+        popupNome.innerText = target.getAttribute('data-nome'); popupNome.style.color = target.getAttribute('data-cor');
         popupFoto.src = target.getAttribute('data-foto');
-        const bannerStr = target.getAttribute('data-banner');
-        popupBanner.style.backgroundImage = bannerStr ? `url(${bannerStr})` : 'none';
-        
-        profilePopup.style.display = 'block';
-        const rect = target.getBoundingClientRect();
-        profilePopup.style.left = (rect.left - 270) + 'px'; 
-        profilePopup.style.top = (rect.top - 50) + 'px';
+        const bannerStr = target.getAttribute('data-banner'); popupBanner.style.backgroundImage = bannerStr ? `url(${bannerStr})` : 'none';
+        profilePopup.style.display = 'block'; const rect = target.getBoundingClientRect();
+        profilePopup.style.left = (rect.left - 270) + 'px'; profilePopup.style.top = (rect.top - 50) + 'px';
         if (rect.left < 270) profilePopup.style.left = (rect.right + 10) + 'px';
     });
     header.addEventListener('mouseleave', () => profilePopup.style.display = 'none');
 });
 
 socket.on('sistemaMsg', (dados) => {
-    const div = document.createElement('div');
-    div.className = 'msg-sistema';
+    const div = document.createElement('div'); div.className = 'msg-sistema';
     div.innerHTML = `<span class="sys-name" style="color: ${dados.cor};">${dados.nome}</span> ${dados.texto}`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    chatBox.appendChild(div); chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // ==========================
-// 4. WEBRTC (TRANSMISSÃO OTIMIZADA)
+// 4. WEBRTC & ÁUDIO MASTER (0 a 200%)
 // ==========================
-let micLigado = false;
-let meuTrackDeAudio = null;
+let audioCtx, masterGainNode;
+const gainNodes = {}; // Armazena os volumes individuais de cada pessoa
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGainNode = audioCtx.createGain(); // Amplificador Master (0 a 200%)
+        masterGainNode.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Interação para garantir que o navegador não bloqueia o som
+document.body.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
+
+let micLigado = false, meuTrackDeAudio = null;
 
 document.getElementById('btn-mic').onclick = async () => {
     const btnMic = document.getElementById('btn-mic');
@@ -203,13 +193,11 @@ document.getElementById('btn-mic').onclick = async () => {
             meuTrackDeAudio = audioStream.getAudioTracks()[0];
             streamLocal.addTrack(meuTrackDeAudio);
             atualizarTracksNosPeers();
-            
             micLigado = true;
             btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON';
         } catch (e) { alert("Mic negado."); }
     } else {
-        micLigado = !micLigado;
-        meuTrackDeAudio.enabled = micLigado;
+        micLigado = !micLigado; meuTrackDeAudio.enabled = micLigado;
         if (micLigado) { btnMic.style.backgroundColor = '#00E5FF'; btnMic.style.color = '#000'; btnMic.innerText = 'MIC ON'; } 
         else { btnMic.style.backgroundColor = 'rgba(0, 229, 255, 0.1)'; btnMic.style.color = '#00E5FF'; btnMic.innerText = 'MIC OFF'; }
     }
@@ -218,97 +206,124 @@ document.getElementById('btn-mic').onclick = async () => {
 btnTela.onclick = async () => {
     try {
         const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        videoLocal.srcObject = displayStream;
-        videoLocal.style.display = 'block';
-        document.getElementById('no-video-msg').style.display = 'none';
-        videoRemoto.style.display = 'none';
+        videoLocal.srcObject = displayStream; videoLocal.style.display = 'block';
+        document.getElementById('no-video-msg').style.display = 'none'; videoRemoto.style.display = 'none';
         
         displayStream.getTracks().forEach(track => streamLocal.addTrack(track));
         atualizarTracksNosPeers();
-        
         btnTela.style.backgroundColor = '#00E5FF'; btnTela.style.color = '#000'; btnTela.innerText = 'A TRANSMITIR';
     } catch (e) { console.log("Partilha cancelada"); }
 };
 
 function atualizarTracksNosPeers() {
     for (const socketId in peers) {
-        const pc = peers[socketId];
         streamLocal.getTracks().forEach(track => {
-            if (!pc.getSenders().find(s => s.track === track)) pc.addTrack(track, streamLocal);
+            if (!peers[socketId].getSenders().find(s => s.track === track)) peers[socketId].addTrack(track, streamLocal);
         });
     }
 }
 
 socket.on('novoUsuario', async (dados) => {
     const pc = criarPeerConnection(dados.id);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
     socket.emit('webrtc_offer', { alvo: dados.id, sdp: offer });
 });
 
 socket.on('webrtc_offer', async (dados) => {
     const pc = criarPeerConnection(dados.remetente);
     await pc.setRemoteDescription(new RTCSessionDescription(dados.sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
     socket.emit('webrtc_answer', { alvo: dados.remetente, sdp: answer });
 });
 
-socket.on('webrtc_answer', async (dados) => {
-    if (peers[dados.remetente]) await peers[dados.remetente].setRemoteDescription(new RTCSessionDescription(dados.sdp));
-});
-
-socket.on('webrtc_ice_candidate', async (dados) => {
-    if (peers[dados.remetente]) await peers[dados.remetente].addIceCandidate(new RTCIceCandidate(dados.candidato));
-});
+socket.on('webrtc_answer', async (dados) => { if (peers[dados.remetente]) await peers[dados.remetente].setRemoteDescription(new RTCSessionDescription(dados.sdp)); });
+socket.on('webrtc_ice_candidate', async (dados) => { if (peers[dados.remetente]) await peers[dados.remetente].addIceCandidate(new RTCIceCandidate(dados.candidato)); });
 
 function criarPeerConnection(idAlvo) {
-    if (peers[idAlvo]) return peers[idAlvo]; // Evita duplicar conexão
+    if (peers[idAlvo]) return peers[idAlvo]; 
     const pc = new RTCPeerConnection(rtcConfig);
     peers[idAlvo] = pc;
 
-    pc.onicecandidate = (evento) => {
-        if (evento.candidate) socket.emit('webrtc_ice_candidate', { alvo: idAlvo, candidato: evento.candidate });
-    };
+    pc.onicecandidate = (evento) => { if (evento.candidate) socket.emit('webrtc_ice_candidate', { alvo: idAlvo, candidato: evento.candidate }); };
 
     pc.ontrack = (evento) => {
+        initAudio();
         const track = evento.track;
         
-        // Se for Vídeo, vai para a tela grande. Se for Áudio, criamos um player invisível para a pessoa.
         if (track.kind === 'video') {
-            videoRemoto.srcObject = evento.streams[0];
+            videoRemoto.srcObject = new MediaStream([track]);
             document.getElementById('no-video-msg').style.display = 'none';
         } else if (track.kind === 'audio') {
+            // Cria um elemento de áudio isolado e escondido para cada faixa (para evitar conflito com o vídeo da tela)
             let audioElem = document.getElementById(`audio-${idAlvo}`);
             if (!audioElem) {
                 audioElem = document.createElement('audio');
                 audioElem.id = `audio-${idAlvo}`;
                 audioElem.autoplay = true;
+                
+                // Liga o áudio desta pessoa ao Amplificador Individual (GainNode), que liga ao Master
+                const source = audioCtx.createMediaElementSource(audioElem);
+                const individualGain = audioCtx.createGain();
+                
+                const slider = document.getElementById(`vol-${idAlvo}`);
+                individualGain.gain.value = slider ? parseFloat(slider.value) : 1.0;
+                
+                source.connect(individualGain);
+                individualGain.connect(masterGainNode); // Liga ao controlo mestre
+                
+                gainNodes[idAlvo] = individualGain;
                 document.body.appendChild(audioElem);
             }
-            audioElem.srcObject = evento.streams[0];
+            if (audioElem.srcObject) audioElem.srcObject.addTrack(track);
+            else audioElem.srcObject = new MediaStream([track]);
         }
     };
 
     pc.onnegotiationneeded = async () => {
-        try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit('webrtc_offer', { alvo: idAlvo, sdp: offer });
-        } catch (err) {}
+        try { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); socket.emit('webrtc_offer', { alvo: idAlvo, sdp: offer }); } catch (err) {}
     };
 
     streamLocal.getTracks().forEach(track => pc.addTrack(track, streamLocal));
     return pc;
 }
 
-// O volume agora apenas controla o volume principal (a transmissão de ecrã/filme)
-const inputVolume = document.getElementById('input-volume');
+// ==========================
+// 5. CONTROLE DE VOLUMES NA INTERFACE
+// ==========================
+const inputVolumeMaster = document.getElementById('input-volume');
 const volumeIcon = document.getElementById('volume-icon');
-inputVolume.addEventListener('input', (e) => {
+
+// Volume Master (Controla TODA a sala junta, de 0 a 200%)
+inputVolumeMaster.addEventListener('input', (e) => {
     const vol = parseFloat(e.target.value);
-    videoRemoto.volume = vol;
+    if (masterGainNode) masterGainNode.gain.value = vol; // Aplica o 200% real no hardware
+    
     if (vol === 0) volumeIcon.innerText = '🔇';
-    else if (vol < 0.5) volumeIcon.innerText = '🔉';
+    else if (vol < 1) volumeIcon.innerText = '🔉';
     else volumeIcon.innerText = '🔊';
+});
+
+// Volumes Individuais (Renderiza um slider para cada pessoa que entra)
+socket.on('listaUsuarios', (usuarios) => {
+    const list = document.getElementById('participants-list');
+    list.innerHTML = '';
+    for (const [sid, user] of Object.entries(usuarios)) {
+        if (sid === socket.id) continue; // Não cria botão de volume para si mesmo
+        
+        const div = document.createElement('div');
+        div.className = 'participant-item';
+        div.innerHTML = `
+            <span class="participant-name" style="color: ${user.cor}">${user.nome}</span>
+            <input type="range" class="participant-vol-slider" id="vol-${sid}" min="0" max="2" step="0.1" value="${gainNodes[sid] ? gainNodes[sid].gain.value : 1}" title="Volume Individual">
+        `;
+        list.appendChild(div);
+
+        // Controla o Volume (0 a 200%) apenas dessa pessoa
+        const slider = div.querySelector('input');
+        slider.addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            e.target.title = `Volume: ${Math.round(vol * 100)}%`;
+            if (gainNodes[sid]) gainNodes[sid].gain.value = vol;
+        });
+    }
 });

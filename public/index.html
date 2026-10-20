@@ -60,20 +60,21 @@
             <div class="header">
                 <span id="room-info">REDE: --- | CHAVE: ---</span>
                 <div class="controls">
-                    <div class="volume-control" title="Ajustar volume da transmissão">
+                    <!-- VOLUME MASTER: Escala de 0 a 2 (0% a 200%) -->
+                    <div class="volume-control" title="Ajustar volume da transmissão Mestre">
                         <span id="volume-icon">🔊</span>
-                        <input type="range" id="input-volume" min="0" max="1" step="0.05" value="1">
+                        <input type="range" id="input-volume" min="0" max="2" step="0.1" value="1">
                     </div>
                     
                     <label class="custom-file-upload">
-                        ALTERAR FUNDO
+                        FUNDO
                         <input type="file" id="input-wallpaper" accept="image/*">
                     </label>
-                    
-                    <button id="btn-remover-fundo" class="btn-tool" style="background: rgba(255, 50, 50, 0.1); border-color: #ff3333; color: #ff3333; padding: 8px 12px;" title="Remover Fundo">X</button>
+                    <button id="btn-remover-fundo" class="btn-tool" style="background: rgba(255, 50, 50, 0.1); border-color: #ff3333; color: #ff3333;" title="Remover Fundo">X</button>
                     
                     <button id="btn-mic" class="btn-tool">MIC OFF</button>
                     <button id="btn-tela" class="btn-tool" style="display: none;">TRANSMITIR SINAL</button>
+                    <button id="btn-sair" class="btn-tool" style="background: rgba(255, 50, 50, 0.1); border-color: #ff3333; color: #ff3333; margin-left: 20px;">SAIR</button>
                 </div>
             </div>
             
@@ -86,6 +87,13 @@
 
         <div class="sidebar">
             <div class="sidebar-header">TERMINAL DE COMUNICAÇÃO</div>
+            
+            <!-- LISTA DE VOLUMES INDIVIDUAIS -->
+            <div id="participants-container">
+                <div class="participants-header">OPERADORES (VOLUMES INDIVIDUAIS)</div>
+                <div id="participants-list"></div>
+            </div>
+
             <div id="chat-box"></div>
             <div class="chat-input-area">
                 <input type="text" id="input-chat" placeholder="Inserir comando...">

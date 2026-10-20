@@ -466,3 +466,38 @@ video {
 .msg-sistema .sys-name {
     font-weight: bold;
 }
+/* --- Participantes e Volumes Individuais --- */
+#participants-container {
+    padding: 10px 15px;
+    background: rgba(0, 10, 20, 0.8);
+    border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+    max-height: 160px;
+    overflow-y: auto;
+}
+.participants-header {
+    font-size: 11px;
+    color: #4A90E2;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+.participant-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.participant-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+    font-weight: bold;
+    text-shadow: 0 0 5px currentColor;
+}
+.participant-vol-slider {
+    width: 80px;
+    accent-color: #00E5FF;
+    cursor: pointer;
+}
