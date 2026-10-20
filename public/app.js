@@ -31,14 +31,15 @@ const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 // ==========================
 // 1. CARREGAR PREFERÊNCIAS E SISTEMA DE CORTE (CROPPER)
 // ==========================
-if (localStorage.getItem('nexus_nickname')) inputNome.value = localStorage.getItem('nexus_nickname');
-if (localStorage.getItem('nexus_color')) inputCor.value = localStorage.getItem('nexus_color');
+// Trocado de localStorage para sessionStorage (apaga ao fechar a aba)
+if (sessionStorage.getItem('nexus_nickname')) inputNome.value = sessionStorage.getItem('nexus_nickname');
+if (sessionStorage.getItem('nexus_color')) inputCor.value = sessionStorage.getItem('nexus_color');
 
 function salvarPreferencias() {
     meuNome = inputNome.value.trim() || 'OPERADOR';
     minhaCor = inputCor.value;
-    localStorage.setItem('nexus_nickname', meuNome);
-    localStorage.setItem('nexus_color', minhaCor);
+    sessionStorage.setItem('nexus_nickname', meuNome);
+    sessionStorage.setItem('nexus_color', minhaCor);
 }
 
 // Elementos do Modal de Corte
@@ -234,13 +235,41 @@ socket.on('mensagemChat', (dados) => {
 // ==========================
 // 4. WEBRTC (TRANSMISSÃO DE ÁUDIO E VÍDEO)
 // ==========================
+let micLigado = false;
+let meuTrackDeAudio = null;
+
 document.getElementById('btn-mic').onclick = async () => {
-    try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        adicionarStreamAsConexoes(audioStream);
-        document.getElementById('btn-mic').style.backgroundColor = '#00E5FF'; 
-        document.getElementById('btn-mic').style.color = '#000'; 
-    } catch (e) { alert("Acesso ao microfone negado ou indisponível."); }
+    const btnMic = document.getElementById('btn-mic');
+    
+    // Se for a primeira vez que clica, pedimos permissão e capturamos o áudio
+    if (!meuTrackDeAudio) {
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            meuTrackDeAudio = audioStream.getAudioTracks()[0]; // Salva o controle do microfone
+            adicionarStreamAsConexoes(audioStream);
+            
+            micLigado = true;
+            btnMic.style.backgroundColor = '#00E5FF'; 
+            btnMic.style.color = '#000'; 
+            btnMic.innerText = 'MIC ON';
+        } catch (e) { 
+            alert("Acesso ao microfone negado ou indisponível."); 
+        }
+    } else {
+        // Se já tem o microfone capturado, apenas Liga/Desliga (Mute)
+        micLigado = !micLigado;
+        meuTrackDeAudio.enabled = micLigado; // Corta o som na fonte
+        
+        if (micLigado) {
+            btnMic.style.backgroundColor = '#00E5FF'; 
+            btnMic.style.color = '#000'; 
+            btnMic.innerText = 'MIC ON';
+        } else {
+            btnMic.style.backgroundColor = 'rgba(0, 229, 255, 0.1)'; 
+            btnMic.style.color = '#00E5FF'; 
+            btnMic.innerText = 'MIC OFF';
+        }
+    }
 };
 
 btnTela.onclick = async () => {
@@ -339,3 +368,41 @@ function criarPeerConnection(idAlvo) {
 
     return pc;
 }
+
+// ==========================
+// 5. CONTROLE DE VOLUME LOCAL
+// ==========================
+const inputVolume = document.getElementById('input-volume');
+const volumeIcon = document.getElementById('volume-icon');
+
+inputVolume.addEventListener('input', (e) => {
+    // Pega o valor da barra (vai de 0.0 até 1.0)
+    const vol = parseFloat(e.target.value);
+    
+    // Altera o volume apenas do vídeo remoto no PC desta pessoa
+    videoRemoto.volume = vol;
+    
+    // Muda o ícone dependendo do nível do volume
+    if (vol === 0) {
+        volumeIcon.innerText = '🔇';
+    } else if (vol < 0.5) {
+        volumeIcon.innerText = '🔉';
+    } else {
+        volumeIcon.innerText = '🔊';
+    }
+});
+
+// Ação do Botão de Remover Fundo
+document.getElementById('btn-remover-fundo').onclick = () => {
+    videoContainer.style.backgroundImage = 'none';
+    document.getElementById('input-wallpaper').value = '';
+};
+
+// Escutar mensagens de histórico (Entrou/Saiu)
+socket.on('sistemaMsg', (dados) => {
+    const div = document.createElement('div');
+    div.className = 'msg-sistema';
+    div.innerHTML = `<span class="sys-name" style="color: ${dados.cor};">${dados.nome}</span> ${dados.texto}`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+});

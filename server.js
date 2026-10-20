@@ -27,7 +27,6 @@ io.on('connection', (socket) => {
             usuarios: { [socket.id]: { nome, cor, foto, banner } } 
         };
         socket.join(idSala);
-        
         socket.emit('salaCriada', { idSala, senha, isHost: true, nome, cor });
     });
 
@@ -36,15 +35,39 @@ io.on('connection', (socket) => {
         if (salas[idSala] && salas[idSala].senha === senha) {
             salas[idSala].usuarios[socket.id] = { nome, cor, foto, banner };
             socket.join(idSala);
-            
             socket.emit('entrouComSucesso', { idSala, isHost: false, nome, cor });
             
-            // Avisa quem já está na rede que alguém novo conectou (para iniciar o WebRTC)
+            // Avisa quem já está na rede que alguém novo conectou
             socket.to(idSala).emit('novoUsuario', { id: socket.id, nome: nome });
+            
+            // MENSAGEM DE HISTÓRICO: Usuário entrou
+            io.to(idSala).emit('sistemaMsg', { nome: nome, cor: cor, texto: 'conectou-se à rede.' });
         } else {
             socket.emit('erro', 'Sala ou chave incorretos!');
         }
     });
+
+    socket.on('mensagemChat', (dados) => {
+        const user = salas[dados.idSala]?.usuarios[socket.id] || { nome: "Anônimo", cor: "#00E5FF", foto: "", banner: "" };
+        io.to(dados.idSala).emit('mensagemChat', { 
+            nome: user.nome, cor: user.cor, foto: user.foto, banner: user.banner, texto: dados.texto 
+        });
+    });
+
+    socket.on('webrtc_offer', (dados) => socket.to(dados.alvo).emit('webrtc_offer', { sdp: dados.sdp, remetente: socket.id }));
+    socket.on('webrtc_answer', (dados) => socket.to(dados.alvo).emit('webrtc_answer', { sdp: dados.sdp, remetente: socket.id }));
+    socket.on('webrtc_ice_candidate', (dados) => socket.to(dados.alvo).emit('webrtc_ice_candidate', { candidato: dados.candidato, remetente: socket.id }));
+
+    // MENSAGEM DE HISTÓRICO: Usuário saiu
+    socket.on('disconnect', () => {
+        for (const sala in salas) {
+            if (salas[sala].usuarios[socket.id]) {
+                const user = salas[sala].usuarios[socket.id];
+                io.to(sala).emit('sistemaMsg', { nome: user.nome, cor: user.cor, texto: 'desconectou-se da rede.' });
+                delete salas[sala].usuarios[socket.id];
+               }
+          }
+        });
 
     // Chat de Texto com envio dos dados de Perfil
     socket.on('mensagemChat', (dados) => {

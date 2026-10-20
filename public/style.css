@@ -417,3 +417,52 @@ video {
 .crop-circle .cropper-face {
     border-radius: 50%;
 }
+
+/* --- Controle de Volume Cyberpunk --- */
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 20, 40, 0.6);
+    padding: 6px 15px;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: 4px;
+    height: 100%;
+}
+
+#volume-icon {
+    font-size: 16px;
+    user-select: none;
+}
+
+#input-volume {
+    width: 100px;
+    cursor: pointer;
+    /* accent-color define a cor principal da barra em navegadores modernos */
+    accent-color: #00E5FF; 
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+#input-volume:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+/* --- Mensagens de Sistema (Entrou/Saiu) --- */
+.msg-sistema {
+    text-align: center;
+    font-style: italic;
+    color: #72767d;
+    font-size: 13px;
+    padding: 5px;
+    background: transparent;
+    border: none;
+    margin: 5px 0;
+}
+
+.msg-sistema .sys-name {
+    font-weight: bold;
+}
