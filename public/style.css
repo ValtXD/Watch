@@ -243,3 +243,177 @@ video {
     cursor: pointer;
 }
 .chat-input-area button:hover { box-shadow: 0 0 10px rgba(0, 229, 255, 0.6); }
+
+/* --- Personalização de Perfil e Janelinha --- */
+.profile-setup-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.profile-setup-group label {
+    flex: 1;
+    font-size: 12px;
+    padding: 10px 5px;
+    text-align: center;
+}
+
+/* Novo layout da mensagem no chat */
+.msg { 
+    background: rgba(0, 20, 40, 0.5);
+    padding: 10px;
+    border-left: 2px solid #00E5FF;
+    font-size: 15px;
+}
+.msg-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    cursor: pointer;
+    width: max-content;
+}
+.chat-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #00E5FF;
+    margin-right: 8px;
+    background-color: #050A14;
+}
+
+/* Estilo do Card Flutuante (Popup) */
+.profile-card {
+    position: fixed; 
+    z-index: 1000; 
+    width: 260px;
+    background: rgba(5, 10, 20, 0.98);
+    border: 1px solid #00E5FF; 
+    box-shadow: 0 0 25px rgba(0, 229, 255, 0.3);
+    border-radius: 8px; 
+    overflow: hidden; 
+    pointer-events: none; /* Não atrapalha o clique no chat */
+}
+.profile-banner {
+    height: 90px; 
+    background-color: #1A365D; 
+    background-size: cover; 
+    background-position: center;
+}
+.profile-pic-container {
+    margin-top: -35px; 
+    margin-left: 15px;
+}
+.profile-pic-container img {
+    width: 70px; 
+    height: 70px; 
+    border-radius: 50%; 
+    border: 4px solid #050A14;
+    object-fit: cover; 
+    background: #000;
+}
+.profile-info { 
+    padding: 10px 15px 15px; 
+}
+.profile-info h3 { 
+    font-size: 20px; 
+    text-shadow: 0 0 8px currentColor; 
+    margin: 0; 
+    letter-spacing: 1px;
+}
+
+/* --- Animação de Fundo do Login --- */
+@keyframes bgPan {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+#login-screen {
+    /* Aumentamos o background-size para permitir movimento e aplicamos a animação */
+    background-size: 110%;
+    animation: bgPan 30s ease-in-out infinite;
+}
+
+/* --- Pré-visualização de Imagens no Login --- */
+.upload-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    gap: 8px;
+}
+
+.preview-thumb {
+    background-color: rgba(0, 20, 40, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    object-fit: cover;
+}
+
+.avatar-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+}
+
+.banner-thumb {
+    width: 100%;
+    height: 60px;
+    border-radius: 4px;
+    background-size: cover;
+    background-position: center;
+}
+
+/* --- Modal de Corte de Imagem --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 5, 10, 0.9);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #050A14;
+    border: 1px solid #00E5FF;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+    padding: 20px;
+    border-radius: 4px;
+    width: 90%;
+    max-width: 600px;
+}
+
+.modal-content h3 {
+    color: #00E5FF;
+    margin-bottom: 15px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.crop-container {
+    width: 100%;
+    max-height: 400px;
+    background: #000;
+    margin-bottom: 20px;
+}
+
+.crop-container img {
+    display: block;
+    max-width: 100%;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+}
+
+/* Força o cropper circular apenas visualmente para a foto */
+.cropper-view-box,
+.cropper-face {
+    border-radius: 0; 
+}
+.crop-circle .cropper-view-box,
+.crop-circle .cropper-face {
+    border-radius: 50%;
+}

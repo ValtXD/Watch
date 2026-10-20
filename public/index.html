@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus Watch</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Adiciona o CSS do Cropper.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
 </head>
 <body>
     <div id="login-screen">
@@ -16,13 +18,42 @@
                 <input type="color" id="input-cor" value="#00E5FF" title="Cor do seu nome">
             </div>
             
+            <div class="profile-setup-group">
+                <div class="upload-wrapper">
+                    <img id="preview-foto" src="https://i.imgur.com/7A2y5Zz.png" class="preview-thumb avatar-thumb" alt="Preview Foto">
+                    <label class="custom-file-upload btn-cyber alt">
+                        FOTO
+                        <input type="file" id="input-foto" accept="image/png, image/jpeg, image/jpg">
+                    </label>
+                </div>
+                <div class="upload-wrapper">
+                    <div id="preview-banner" class="preview-thumb banner-thumb"></div>
+                    <label class="custom-file-upload btn-cyber alt">
+                        BANNER
+                        <input type="file" id="input-banner" accept="image/png, image/jpeg, image/jpg">
+                    </label>
+                </div>
+            </div>
+            
             <button id="btn-criar" class="btn-cyber">INICIAR NOVA REDE</button>
-            
             <div class="divider">CONEXÃO EXTERNA</div>
-            
             <input type="text" id="input-sala" placeholder="CÓDIGO DA REDE (SALA)">
             <input type="password" id="input-senha" placeholder="CHAVE DE ACESSO">
             <button id="btn-entrar" class="btn-cyber alt">CONECTAR</button>
+        </div>
+    </div>
+
+    <!-- Janela de Corte de Imagem (Modal) -->
+    <div id="crop-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 id="crop-title">AJUSTAR IMAGEM</h3>
+            <div class="crop-container">
+                <img id="crop-image" src="" alt="Cortar Imagem">
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-crop" class="btn-cyber alt">CANCELAR</button>
+                <button id="btn-confirm-crop" class="btn-cyber">CONFIRMAR CORTE</button>
+            </div>
         </div>
     </div>
 
@@ -57,7 +88,19 @@
         </div>
     </div>
 
+    <div id="profile-popup" class="profile-card" style="display: none;">
+        <div class="profile-banner" id="popup-banner"></div>
+        <div class="profile-pic-container">
+            <img id="popup-foto" src="" alt="Avatar">
+        </div>
+        <div class="profile-info">
+            <h3 id="popup-nome">NOME</h3>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Adiciona o Script do Cropper.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
